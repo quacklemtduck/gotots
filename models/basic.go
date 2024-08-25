@@ -6,6 +6,6 @@ type Single []int
 
 type Basic struct {
 	First  []string
-	Second Single
+	Second *Single `json:"wee"`
 	hidden int
 }

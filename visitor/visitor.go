@@ -3,6 +3,7 @@ package visitor
 import (
 	"fmt"
 	"go/ast"
+	"reflect"
 	"strings"
 	"unicode"
 )
@@ -43,13 +44,25 @@ func printFields(fields *ast.FieldList) {
 	for _, f := range fields.List {
 		if f.Names[0].IsExported() {
 			var fieldType string
+			fieldName := f.Names[0].Name
+			if f.Tag != nil {
+				tag := f.Tag.Value
+				tag = tag[1 : len(tag)-1]
+				structTag := reflect.StructTag(tag)
+				jsonTag := structTag.Get("json")
+				// TODO handle omitempty
+				if jsonTag != "" && jsonTag != "-" {
+					fieldName = jsonTag
+				}
+				fmt.Println(f.Tag.Value)
+			}
 			switch t := f.Type.(type) {
 			case *ast.ArrayType:
 				fieldType = fmt.Sprintf("%s[]", t.Elt)
 			default:
-				fieldType = fmt.Sprintf("%s", t)
+				fieldType = fmt.Sprintf("%T", t)
 			}
-			fmt.Printf("\t%v: %s", f.Names[0].Name, fieldType)
+			fmt.Printf("\t%s: %s", fieldName, fieldType)
 			fmt.Printf("\n")
 		}
 	}
