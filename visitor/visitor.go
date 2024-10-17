@@ -8,7 +8,7 @@ import (
 	"unicode"
 )
 
-const DEBUG = false
+const DEBUG = true
 
 type Visitor struct {
 	i        int
