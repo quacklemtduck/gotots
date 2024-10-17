@@ -5,7 +5,12 @@ package models
 type Single []int
 
 type Basic struct {
-	First  []string
-	Second *Single `json:"wee"`
+	First  []int
+	Second *Single `json:"name_from_json"`
 	hidden int
+	What   map[string]int
+}
+
+type notExported struct {
+	Wee int64
 }

@@ -8,9 +8,15 @@ import (
 	"unicode"
 )
 
+const DEBUG = false
+
 type Visitor struct {
-	name string
-	i    int
+	i        int
+	FileName string
+}
+
+func New(fileName string) Visitor {
+	return Visitor{FileName: fileName}
 }
 
 func (v Visitor) Visit(n ast.Node) ast.Visitor {
@@ -19,28 +25,58 @@ func (v Visitor) Visit(n ast.Node) ast.Visitor {
 		return nil
 	}
 
-	fmt.Printf("%s%T\n", strings.Repeat("\t", int(v.i)), n)
+	if DEBUG {
+		fmt.Printf("%s%T\n", strings.Repeat("\t", int(v.i)), n)
+	}
 	switch t := n.(type) {
-	case *ast.Ident:
-		fmt.Printf("%s%v\n", strings.Repeat("\t", int(v.i)), t.Name)
-		return Visitor{i: v.i + 1, name: t.Name}
+	case *ast.File:
+		fmt.Printf("// Generated from file: %s\n", v.FileName)
+		fmt.Printf("// Package name: %s\n\n", t.Name.Name)
 	case *ast.TypeSpec:
-		fmt.Printf("%s%v\n", strings.Repeat("\t", int(v.i)), t.Name.Name)
-		return Visitor{i: v.i + 1, name: t.Name.Name}
-	case *ast.StructType:
-		fmt.Printf("%s%v\n", strings.Repeat("\t", int(v.i)), len(t.Fields.List))
-		fmt.Printf("interface %s {\n", v.name)
-		printFields(t.Fields)
-		fmt.Printf("}\n")
+		if DEBUG {
+			fmt.Printf("%s%v\n", strings.Repeat("\t", int(v.i)), t.Name.Name)
+			fmt.Printf("%s%T\n", strings.Repeat("\t", int(v.i)), t.Type)
+		}
+		typeStr := fmt.Sprintf("%T", t.Type)
+		switch t2 := t.Type.(type) {
+		case *ast.StructType:
+			fmt.Println(printStruct(t.Name, t2))
+			return nil
+		case *ast.ArrayType:
+			typeStr = arrayVisit(t2)
+		case *ast.Ident:
+			typeStr = identVisit(t2)
+		case *ast.StarExpr:
+			typeStr = starVisit(t2)
+		}
+		if t.Name.IsExported() {
+			fmt.Printf("export type %s = %s\n\n", t.Name.Name, typeStr)
+		} else {
+			fmt.Printf("type %s = %s\n\n", t.Name.Name, typeStr)
+		}
 		return nil
 	default:
 	}
 
-	return Visitor{i: v.i + 1, name: v.name}
+	return Visitor{i: v.i + 1, FileName: v.FileName}
 }
 
-// printFields prints the list of fields of a FieldList
-func printFields(fields *ast.FieldList) {
+func printStruct(name *ast.Ident, st *ast.StructType) string {
+	var res string
+	if name.IsExported() {
+		res = fmt.Sprintf("%s%s", res, fmt.Sprintf("export interface %s {\n", name.Name))
+	} else {
+		res = fmt.Sprintf("%s%s", res, fmt.Sprintf("interface %s {\n", name.Name))
+	}
+	res = fmt.Sprintf("%s%s", res, printStructFields(st.Fields))
+
+	res = fmt.Sprintf("%s%s", res, "}\n")
+	return res
+}
+
+// printStructFields prints the list of fields of a FieldList
+func printStructFields(fields *ast.FieldList) string {
+	res := ""
 	for _, f := range fields.List {
 		if f.Names[0].IsExported() {
 			var fieldType string
@@ -54,19 +90,51 @@ func printFields(fields *ast.FieldList) {
 				if jsonTag != "" && jsonTag != "-" {
 					fieldName = jsonTag
 				}
-				fmt.Println(f.Tag.Value)
+				//fmt.Println(f.Tag.Value)
 			}
 			switch t := f.Type.(type) {
 			case *ast.ArrayType:
-				fieldType = fmt.Sprintf("%s[]", t.Elt)
+				fieldType = arrayVisit(t)
+			case *ast.StarExpr:
+				fieldType = starVisit(t)
+			case *ast.Ident:
+				fieldType = identVisit(t)
 			default:
 				fieldType = fmt.Sprintf("%T", t)
 			}
-			fmt.Printf("\t%s: %s", fieldName, fieldType)
-			fmt.Printf("\n")
+			res = fmt.Sprintf("%s%s", res, fmt.Sprintf("\t%s: %s\n", fieldName, fieldType))
 		}
 	}
+	return res
+}
 
+func starVisit(st *ast.StarExpr) string {
+	switch t := st.X.(type) {
+	case *ast.Ident:
+		return identVisit(t)
+	default:
+		return fmt.Sprintf("%T", t)
+	}
+}
+
+func identVisit(id *ast.Ident) string {
+	switch id.Name {
+	case "int", "int8", "int16", "int32", "int64",
+		"uint", "uint8", "uint16", "uint32", "uint64",
+		"float32", "float64":
+		return "number"
+	default:
+		return id.Name
+	}
+}
+
+func arrayVisit(arr *ast.ArrayType) string {
+	switch t := arr.Elt.(type) {
+	case *ast.Ident:
+		return fmt.Sprintf("%s[]", identVisit(t))
+	default:
+		return fmt.Sprintf("%T[]", arr.Elt)
+	}
 }
 
 // IsFirstLetterCapitalized returns true if the first letter is capitalized
