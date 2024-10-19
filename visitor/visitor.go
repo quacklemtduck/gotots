@@ -8,7 +8,7 @@ import (
 	"unicode"
 )
 
-const DEBUG = true
+const DEBUG = false
 
 type Visitor struct {
 	i        int
@@ -37,17 +37,12 @@ func (v Visitor) Visit(n ast.Node) ast.Visitor {
 			fmt.Printf("%s%v\n", strings.Repeat("\t", int(v.i)), t.Name.Name)
 			fmt.Printf("%s%T\n", strings.Repeat("\t", int(v.i)), t.Type)
 		}
-		typeStr := fmt.Sprintf("%T", t.Type)
+		var typeStr string
 		switch t2 := t.Type.(type) {
-		case *ast.StructType:
-			fmt.Println(printStruct(t.Name, t2))
+		case *ast.InterfaceType:
 			return nil
-		case *ast.ArrayType:
-			typeStr = arrayVisit(t2)
-		case *ast.Ident:
-			typeStr = identVisit(t2)
-		case *ast.StarExpr:
-			typeStr = starVisit(t2)
+		default:
+			typeStr = visitExpr(t2)
 		}
 		if t.Name.IsExported() {
 			fmt.Printf("export type %s = %s\n\n", t.Name.Name, typeStr)
@@ -61,16 +56,28 @@ func (v Visitor) Visit(n ast.Node) ast.Visitor {
 	return Visitor{i: v.i + 1, FileName: v.FileName}
 }
 
-func printStruct(name *ast.Ident, st *ast.StructType) string {
-	var res string
-	if name.IsExported() {
-		res = fmt.Sprintf("%s%s", res, fmt.Sprintf("export interface %s {\n", name.Name))
-	} else {
-		res = fmt.Sprintf("%s%s", res, fmt.Sprintf("interface %s {\n", name.Name))
+func visitExpr(e ast.Expr) string {
+	switch t := e.(type) {
+	case *ast.Ident:
+		return identVisit(t)
+	case *ast.ArrayType:
+		return arrayVisit(t)
+	case *ast.MapType:
+		return mapVisit(t)
+	case *ast.StarExpr:
+		return starVisit(t)
+	case *ast.StructType:
+		return visitStruct(t)
 	}
-	res = fmt.Sprintf("%s%s", res, printStructFields(st.Fields))
 
-	res = fmt.Sprintf("%s%s", res, "}\n")
+	return fmt.Sprintf("%T", e)
+}
+
+func visitStruct(st *ast.StructType) string {
+	var res string
+	res = "{\n"
+	res = fmt.Sprintf("%s%s", res, printStructFields(st.Fields))
+	res = fmt.Sprintf("%s%s", res, "}")
 	return res
 }
 
@@ -92,20 +99,15 @@ func printStructFields(fields *ast.FieldList) string {
 				}
 				//fmt.Println(f.Tag.Value)
 			}
-			switch t := f.Type.(type) {
-			case *ast.ArrayType:
-				fieldType = arrayVisit(t)
-			case *ast.StarExpr:
-				fieldType = starVisit(t)
-			case *ast.Ident:
-				fieldType = identVisit(t)
-			default:
-				fieldType = fmt.Sprintf("%T", t)
-			}
+			fieldType = visitExpr(f.Type)
 			res = fmt.Sprintf("%s%s", res, fmt.Sprintf("\t%s: %s\n", fieldName, fieldType))
 		}
 	}
 	return res
+}
+
+func mapVisit(m *ast.MapType) string {
+	return fmt.Sprintf("{[key: %s]: %s}", visitExpr(m.Key), visitExpr(m.Value))
 }
 
 func starVisit(st *ast.StarExpr) string {
@@ -121,7 +123,11 @@ func identVisit(id *ast.Ident) string {
 	switch id.Name {
 	case "int", "int8", "int16", "int32", "int64",
 		"uint", "uint8", "uint16", "uint32", "uint64",
-		"float32", "float64":
+		"float32", "float64", "byte":
+		return "number"
+	case "bool":
+		return "boolean"
+	case "rune":
 		return "number"
 	default:
 		return id.Name
