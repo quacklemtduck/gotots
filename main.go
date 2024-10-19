@@ -46,7 +46,12 @@ func main() {
 		// Create a file to replace stdout
 		confDir := filepath.Dir(conf.ConfigPath)
 		goName := strings.TrimSuffix(os.Getenv("GOFILE"), ".go")
-		fileName := fmt.Sprintf("%s/%s/%s.ts", confDir, conf.OutPath, goName)
+		fileName := fmt.Sprintf("%s/%s/%s/%s.ts", confDir, conf.OutPath, f.Name.Name, goName)
+		dir := filepath.Dir(fileName)
+		err := os.MkdirAll(dir, os.ModePerm)
+		if err != nil {
+			log.Fatalln("Error creating directories:", err)
+		}
 		outFile, err := os.Create(fileName)
 		if err != nil {
 			log.Fatalln("Error creating file:", err)
