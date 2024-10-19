@@ -85,22 +85,34 @@ func visitStruct(st *ast.StructType) string {
 func printStructFields(fields *ast.FieldList) string {
 	res := ""
 	for _, f := range fields.List {
-		if f.Names[0].IsExported() {
-			var fieldType string
-			fieldName := f.Names[0].Name
-			if f.Tag != nil {
-				tag := f.Tag.Value
-				tag = tag[1 : len(tag)-1]
-				structTag := reflect.StructTag(tag)
-				jsonTag := structTag.Get("json")
-				// TODO handle omitempty
-				if jsonTag != "" && jsonTag != "-" {
-					fieldName = jsonTag
+		for i := range f.Names {
+			if f.Names[i].IsExported() {
+				var fieldType string
+				fieldName := f.Names[i].Name
+				extra := ""
+				if f.Tag != nil {
+					tag := f.Tag.Value
+					tag = tag[1 : len(tag)-1]
+					structTag := reflect.StructTag(tag)
+					jsonTag := structTag.Get("json")
+					// TODO handle omitempty
+					if jsonTag != "" {
+						jsonValues := strings.Split(jsonTag, ",")
+						if jsonValues[0] == "-" && len(jsonValues) == 1 {
+							continue
+						}
+						if jsonValues[0] != "" {
+							fieldName = jsonValues[0]
+						}
+						if len(jsonValues) >= 2 && jsonValues[1] == "omitempty" {
+							extra = "?"
+						}
+					}
+					//fmt.Println(f.Tag.Value)
 				}
-				//fmt.Println(f.Tag.Value)
+				fieldType = visitExpr(f.Type)
+				res = fmt.Sprintf("%s%s", res, fmt.Sprintf("\t%s%s: %s\n", fieldName, extra, fieldType))
 			}
-			fieldType = visitExpr(f.Type)
-			res = fmt.Sprintf("%s%s", res, fmt.Sprintf("\t%s: %s\n", fieldName, fieldType))
 		}
 	}
 	return res
@@ -113,7 +125,7 @@ func mapVisit(m *ast.MapType) string {
 func starVisit(st *ast.StarExpr) string {
 	switch t := st.X.(type) {
 	case *ast.Ident:
-		return identVisit(t)
+		return fmt.Sprintf("%s | null", identVisit(t))
 	default:
 		return fmt.Sprintf("%T", t)
 	}
