@@ -9,12 +9,14 @@ import (
 )
 
 type Config struct {
-	OutPath    string `yaml:"out-path"`
-	ConfigPath string `yaml:"-"`
+	OutPath     string `yaml:"out-path"`
+	UseComments bool   `yaml:"use-comments"`
+	ConfigPath  string `yaml:"-"`
 }
 
 var defaultConfig = Config{
-	OutPath: "",
+	OutPath:     "",
+	UseComments: false,
 }
 
 func LoadConfig(startPath string) Config {
@@ -26,7 +28,7 @@ func LoadConfig(startPath string) Config {
 	if err != nil {
 		log.Fatalln("Error reading config file:", err)
 	}
-	var conf Config
+	var conf Config = Config{}
 	err = yaml.Unmarshal(content, &conf)
 	if err != nil {
 		log.Fatalln("Error parsing config file:", err)

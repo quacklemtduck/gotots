@@ -37,7 +37,7 @@ func main() {
 	file := fmt.Sprintf("%s/%s", cwd, os.Getenv("GOFILE"))
 	log.Printf("Full path: %s\n", file)
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, file, nil, 0)
+	f, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
 	if err != nil {
 		panic(err)
 	}
@@ -61,7 +61,7 @@ func main() {
 	}
 
 	fmt.Printf(disclaimer, time.Now().Format("2006-01-02 15:04:05"))
-	var v visitor.Visitor = visitor.New(os.Getenv("GOFILE"))
+	var v visitor.Visitor = visitor.New(os.Getenv("GOFILE"), conf.UseComments)
 	ast.Walk(v, f)
 
 }

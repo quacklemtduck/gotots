@@ -2,6 +2,7 @@ package models
 
 //go:generate go run ../main.go
 
+// BasicTypes contains all the basic types supported by Gotots
 type BasicTypes struct {
 	BoolType bool
 

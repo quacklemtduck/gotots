@@ -3,6 +3,7 @@ package visitor
 import (
 	"fmt"
 	"go/ast"
+	"go/token"
 	"reflect"
 	"strings"
 	"unicode"
@@ -11,12 +12,13 @@ import (
 const DEBUG = false
 
 type Visitor struct {
-	i        int
-	FileName string
+	i           int
+	FileName    string
+	UseComments bool
 }
 
-func New(fileName string) Visitor {
-	return Visitor{FileName: fileName}
+func New(fileName string, useComments bool) Visitor {
+	return Visitor{FileName: fileName, UseComments: useComments}
 }
 
 func (v Visitor) Visit(n ast.Node) ast.Visitor {
@@ -32,6 +34,18 @@ func (v Visitor) Visit(n ast.Node) ast.Visitor {
 	case *ast.File:
 		fmt.Printf("// Generated from file: %s\n", v.FileName)
 		fmt.Printf("// Package name: %s\n\n", t.Name.Name)
+	case *ast.GenDecl:
+		if v.UseComments && t.Tok == token.TYPE && t.Doc != nil {
+			fmt.Println("/**")
+			lines := strings.Split(t.Doc.Text(), "\n")
+			for _, l := range lines {
+				if l == "" {
+					continue
+				}
+				fmt.Printf(" * %s\n", l)
+			}
+			fmt.Println(" */")
+		}
 	case *ast.TypeSpec:
 		if DEBUG {
 			fmt.Printf("%s%v\n", strings.Repeat("\t", int(v.i)), t.Name.Name)
@@ -51,9 +65,13 @@ func (v Visitor) Visit(n ast.Node) ast.Visitor {
 		}
 		return nil
 	default:
+		if DEBUG {
+			fmt.Printf("%s%T Default\n", strings.Repeat("\t", int(v.i)), t)
+			fmt.Printf("%s%#v Default\n", strings.Repeat("\t", int(v.i)), t)
+		}
 	}
 
-	return Visitor{i: v.i + 1, FileName: v.FileName}
+	return Visitor{i: v.i + 1, FileName: v.FileName, UseComments: v.UseComments}
 }
 
 func visitExpr(e ast.Expr) string {
