@@ -1,6 +1,6 @@
 package models
 
-//go:generate go run ../main.go
+//go:generate gotots
 
 // BasicTypes contains all the basic types supported by Gotots
 type BasicTypes struct {

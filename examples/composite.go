@@ -1,6 +1,6 @@
 package models
 
-//go:generate go run ../main.go
+//go:generate gotots
 
 type Simple int64
 
