@@ -27,3 +27,5 @@ use-comments: false # Whether the generated types should also use the comments f
 You can have multiple config files and each file will use the first one found.
 
 Now you should be able to run `go generate ./...` and the files should all be generated.
+
+If you are in doubt, look at the `examples` folder for examples of types supported and how a config file could look
