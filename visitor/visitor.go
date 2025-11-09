@@ -36,15 +36,13 @@ func (v Visitor) Visit(n ast.Node) ast.Visitor {
 		fmt.Printf("// Package name: %s\n\n", t.Name.Name)
 	case *ast.GenDecl:
 		if v.UseComments && t.Tok == token.TYPE && t.Doc != nil {
-			fmt.Println("/**")
-			lines := strings.Split(t.Doc.Text(), "\n")
-			for _, l := range lines {
-				if l == "" {
-					continue
-				}
-				fmt.Printf(" * %s\n", l)
-			}
-			fmt.Println(" */")
+			// fmt.Println("/**")
+			// lines := strings.SplitSeq(t.Doc.Text(), "\n")
+			// for l := range lines {
+			// 	fmt.Printf(" * %s\n", l)
+			// }
+			// fmt.Println(" */")
+			fmt.Print(v.visitCommentGroup(t.Doc, ""))
 		}
 	case *ast.TypeSpec:
 		if DEBUG {
@@ -56,7 +54,7 @@ func (v Visitor) Visit(n ast.Node) ast.Visitor {
 		case *ast.InterfaceType:
 			return nil
 		default:
-			typeStr = visitExpr(t2)
+			typeStr = v.visitExpr(t2)
 		}
 		if t.Name.IsExported() {
 			fmt.Printf("export type %s = %s\n\n", t.Name.Name, typeStr)
@@ -74,33 +72,33 @@ func (v Visitor) Visit(n ast.Node) ast.Visitor {
 	return Visitor{i: v.i + 1, FileName: v.FileName, UseComments: v.UseComments}
 }
 
-func visitExpr(e ast.Expr) string {
+func (v Visitor) visitExpr(e ast.Expr) string {
 	switch t := e.(type) {
 	case *ast.Ident:
-		return identVisit(t)
+		return v.identVisit(t)
 	case *ast.ArrayType:
-		return arrayVisit(t)
+		return v.arrayVisit(t)
 	case *ast.MapType:
-		return mapVisit(t)
+		return v.mapVisit(t)
 	case *ast.StarExpr:
-		return starVisit(t)
+		return v.starVisit(t)
 	case *ast.StructType:
-		return visitStruct(t)
+		return v.visitStruct(t)
 	}
 
 	return fmt.Sprintf("%T", e)
 }
 
-func visitStruct(st *ast.StructType) string {
+func (v Visitor) visitStruct(st *ast.StructType) string {
 	var res string
 	res = "{\n"
-	res = fmt.Sprintf("%s%s", res, printStructFields(st.Fields))
+	res = fmt.Sprintf("%s%s", res, v.printStructFields(st.Fields))
 	res = fmt.Sprintf("%s%s", res, "}")
 	return res
 }
 
 // printStructFields prints the list of fields of a FieldList
-func printStructFields(fields *ast.FieldList) string {
+func (v Visitor) printStructFields(fields *ast.FieldList) string {
 	res := ""
 	for _, f := range fields.List {
 		for i := range f.Names {
@@ -113,7 +111,7 @@ func printStructFields(fields *ast.FieldList) string {
 					tag = tag[1 : len(tag)-1]
 					structTag := reflect.StructTag(tag)
 					jsonTag := structTag.Get("json")
-					// TODO handle omitempty
+
 					if jsonTag != "" {
 						jsonValues := strings.Split(jsonTag, ",")
 						if jsonValues[0] == "-" && len(jsonValues) == 1 {
@@ -128,7 +126,10 @@ func printStructFields(fields *ast.FieldList) string {
 					}
 					//fmt.Println(f.Tag.Value)
 				}
-				fieldType = visitExpr(f.Type)
+				if v.UseComments && f.Doc != nil {
+					res = fmt.Sprintf("%s%s", res, v.visitCommentGroup(f.Doc, "\t"))
+				}
+				fieldType = v.visitExpr(f.Type)
 				res = fmt.Sprintf("%s%s", res, fmt.Sprintf("\t%s%s: %s\n", fieldName, extra, fieldType))
 			}
 		}
@@ -136,20 +137,20 @@ func printStructFields(fields *ast.FieldList) string {
 	return res
 }
 
-func mapVisit(m *ast.MapType) string {
-	return fmt.Sprintf("{[key: %s]: %s}", visitExpr(m.Key), visitExpr(m.Value))
+func (v Visitor) mapVisit(m *ast.MapType) string {
+	return fmt.Sprintf("Record<%s, %s>", v.visitExpr(m.Key), v.visitExpr(m.Value))
 }
 
-func starVisit(st *ast.StarExpr) string {
+func (v Visitor) starVisit(st *ast.StarExpr) string {
 	switch t := st.X.(type) {
 	case *ast.Ident:
-		return fmt.Sprintf("%s | null", identVisit(t))
+		return fmt.Sprintf("%s | null", v.identVisit(t))
 	default:
 		return fmt.Sprintf("%T", t)
 	}
 }
 
-func identVisit(id *ast.Ident) string {
+func (v Visitor) identVisit(id *ast.Ident) string {
 	switch id.Name {
 	case "int", "int8", "int16", "int32", "int64",
 		"uint", "uint8", "uint16", "uint32", "uint64",
@@ -164,10 +165,10 @@ func identVisit(id *ast.Ident) string {
 	}
 }
 
-func arrayVisit(arr *ast.ArrayType) string {
+func (v Visitor) arrayVisit(arr *ast.ArrayType) string {
 	switch t := arr.Elt.(type) {
 	case *ast.Ident:
-		return fmt.Sprintf("%s[]", identVisit(t))
+		return fmt.Sprintf("%s[]", v.identVisit(t))
 	default:
 		return fmt.Sprintf("%T[]", arr.Elt)
 	}
@@ -197,4 +198,14 @@ func DecapitalizeFirstLetter(s string) string {
 
 	// Decapitalize the first letter and concatenate with the rest of the string
 	return string(unicode.ToLower(firstRune)) + s[1:]
+}
+
+func (v Visitor) visitCommentGroup(doc *ast.CommentGroup, prefix string) string {
+	res := fmt.Sprintf("%s/**\n", prefix)
+	lines := strings.Split(doc.Text(), "\n")
+	for _, l := range lines[:len(lines)-1] {
+		res = fmt.Sprintf("%s%s * %s\n", res, prefix, l)
+	}
+	res = fmt.Sprintf("%s%s */\n", res, prefix)
+	return res
 }

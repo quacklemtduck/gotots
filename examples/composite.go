@@ -9,6 +9,7 @@ type Composite struct {
 	SimpleField  Simple
 	PointerField *Simple
 	SimpleArray  []Simple
-	SimpleMap    map[int]Simple
-	One, Two     int
+	// This one is documented
+	SimpleMap map[int]Simple
+	One, Two  int
 }

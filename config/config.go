@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"golang.org/x/mod/modfile"
 	"gopkg.in/yaml.v3"
 )
 
@@ -37,6 +38,25 @@ func LoadConfig(startPath string) Config {
 	return conf
 }
 
+func GetBaseModuleName(startPath string) string {
+	path, ok := findModFile(startPath)
+	if !ok {
+		panic("No .mod found")
+	}
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		log.Fatalln("Error reading mod file:", err)
+	}
+
+	modFile, err := modfile.Parse(path, content, nil)
+	if err != nil {
+		log.Fatalln("Error reading mod file:", err)
+	}
+
+	return modFile.Module.Mod.Path
+}
+
 // findGototsFile searches for "gotots.yaml" in the given path and its parent directories.
 // It returns the path to "gotots.yaml" if found, along with an `ok` boolean indicating if it was found.
 func findGototsFile(startPath string) (string, bool) {
@@ -53,7 +73,7 @@ func findGototsFile(startPath string) (string, bool) {
 		// Check if "gotots.yml" exists in the current directory.
 		gototsPath = filepath.Join(currentPath, "gotots.yml")
 		if _, err := os.Stat(gototsPath); err == nil {
-			// Return the path to "gotots.yaml" if found.
+			// Return the path to "gotots.yml" if found.
 			return gototsPath, true
 		}
 
@@ -74,5 +94,30 @@ func findGototsFile(startPath string) (string, bool) {
 
 		// Move up to the parent directory.
 		currentPath = parentPath
+	}
+}
+
+func findModFile(startPath string) (string, bool) {
+	currentPath := startPath
+
+	for {
+		// Check if "go.mod" exists in the current directory.
+		goModPath := filepath.Join(currentPath, "go.mod")
+		if _, err := os.Stat(goModPath); err == nil {
+			// Stop the search if we encounter "go.mod".
+			return goModPath, true
+		}
+
+		// Get the parent directory.
+		parentPath := filepath.Dir(currentPath)
+
+		// If we've reached the root directory, stop the search.
+		if parentPath == currentPath {
+			return "", false
+		}
+
+		// Move up to the parent directory.
+		currentPath = parentPath
+
 	}
 }
