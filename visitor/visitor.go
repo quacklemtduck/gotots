@@ -118,7 +118,6 @@ func (v Visitor) printStructFields(fields *ast.FieldList) string {
 							extra = "?"
 						}
 					}
-					//fmt.Println(f.Tag.Value)
 				}
 				if v.UseComments && f.Doc != nil {
 					res = fmt.Sprintf("%s%s", res, v.visitCommentGroup(f.Doc, "\t"))
