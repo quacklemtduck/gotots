@@ -36,12 +36,6 @@ func (v Visitor) Visit(n ast.Node) ast.Visitor {
 		fmt.Printf("// Package name: %s\n\n", t.Name.Name)
 	case *ast.GenDecl:
 		if v.UseComments && t.Tok == token.TYPE && t.Doc != nil {
-			// fmt.Println("/**")
-			// lines := strings.SplitSeq(t.Doc.Text(), "\n")
-			// for l := range lines {
-			// 	fmt.Printf(" * %s\n", l)
-			// }
-			// fmt.Println(" */")
 			fmt.Print(v.visitCommentGroup(t.Doc, ""))
 		}
 	case *ast.TypeSpec:
